@@ -11,7 +11,7 @@
 
 ## 2、摘要
 
-STM32N647 是 ST 新一代旗舰 MCU（Cortex-M55 800MHz + Neural-ART NPU 600GOPS + 4.2MB SRAM，无内部 Flash），但 openvela（NuttX）对其零支持，生态开发者无法在该硬件上使用 openvela 的组件化能力。本作品完成 STM32N647（正点原子 ATK-DNN647 开发板）的 openvela 全量板级适配：从芯片层（ARMv8-M 启动、NVIC 中断、USART 控制台、堆管理）到板级层（链接脚本、800MHz 时钟树、引脚定义），并修复 openvela 构建系统 6 处问题。成果：新增 39 个源文件，编译 100% 通过，产出 nuttx ELF（ROM 112,160B / 511KB，RAM 9,976B / 1536KB），串口 NSH 控制台就绪；沉淀可复用移植 Skill 1 个、AI Coding 日志全量归档。本作品是 NuttX/openvela 生态首个 STM32N6 系列 BSP。（真机串口验证因开发板暂不在手边，状态见 3.5 节如实说明）
+STM32N647 是 ST 新一代旗舰 MCU（Cortex-M55 800MHz + Neural-ART NPU 600GOPS + 4.2MB SRAM，无内部 Flash），但 openvela（NuttX）对其零支持，生态开发者无法在该硬件上使用 openvela 的组件化能力。本作品完成 STM32N647（正点原子 ATK-DNN647 开发板）的 openvela 全量板级适配：从芯片层（ARMv8-M 启动、NVIC 中断、USART 控制台、堆管理）到板级层（链接脚本、800MHz 时钟树、引脚定义），并修复 openvela 构建系统 7 类问题。成果：新增 39 个源文件，编译 100% 通过，产出 nuttx ELF（ROM 112,096B / 511KB，RAM 9,976B / 1536KB），串口 NSH 控制台就绪；沉淀可复用移植 Skill 1 个、AI Coding 日志全量归档。本作品是 NuttX/openvela 生态首个 STM32N6 系列 BSP。（真机串口验证因开发板暂不在手边，状态见 3.5 节如实说明）
 
 ## 3、正文
 
@@ -90,7 +90,7 @@ STM32N647 是 ST 新一代旗舰 MCU（Cortex-M55 800MHz + Neural-ART NPU 600GOP
 
 - **已落地（系统基础能力）**：NuttX 内核调度、procfs/romfs 文件系统、serial driver framework、Kconfig 组件化配置、NSH 命令行。
 - **图形能力（规划，硬件已备）**：板载 4.3" RGB LCD（800×480，24bit LTDC 接口，核心板完整引出 PA/PB/PG bank），计划以 LTDC 驱动 + LVGL 落地图形能力，引脚资源已在本作品引脚表中完整梳理。
-- **对 openvela 的改进（已提交）**：修复 armv8-m Make 构建 VPATH 缺失（真实 bug）；修复 6 处 Kconfig 解析兼容性（osource 方言、悬空 source、endmenu 不匹配）；更多改进建议见 3.7。
+- **对 openvela 的改进（已提交）**：修复 armv8-m Make 构建 VPATH 缺失（真实 bug）；修复 Kconfig 解析兼容性 6 处（osource 方言、悬空 source、--help-- 写法、缺失行尾换行导致的跨文件栈错乱）；更多改进建议见 3.7。
 
 ### 3.4 系统实现
 
@@ -166,14 +166,14 @@ nsh_main()  →  procfs 挂载（atk_dnn647_bringup）→ NSH 提示符
 | 固件编译 | `configure.sh -E` + `make -j` | ✅ 通过，0 错误 | 构建日志（会话日志已归档 logs/） |
 | 产物架构正确性 | `file nuttx` | ✅ ARM Cortex-M firmware, EABI5, 静态链接 | file 输出 |
 | 链接地址正确性 | 检查 ELF program headers | ✅ 加载地址 0x34000400 (FLEXRAM) | readelf 记录于研究文档 |
-| 内存占用 | `size` / 链接报告 | ✅ ROM 112,160B/511KB (21.43%)，RAM 9,976B/1536KB (0.63%)，DTCM 0B | 链接器输出（见下） |
+| 内存占用 | `size` / 链接报告 | ✅ ROM 112,096B/511KB (21.43%)，RAM 9,976B/1536KB (0.63%)，DTCM 0B | 链接器输出（见下） |
 | NSH 串口交互 | 真机 USART1 回环 | ⏳ 待验证（开发板暂不在手边） | — |
 | LED GPIO 翻转 | 真机 PG10/PE10 | ⏳ 待验证 | — |
 
 链接器实际输出：
 ```
 Memory region         Used Size  Region Size  %age Used
-             ROM:      112160 B       511 KB     21.43%
+             ROM:      112096 B       511 KB     21.42%
              RAM:        9976 B      1536 KB      0.63%
             DTCM:           0 B       128 KB      0.00%
 ```

@@ -35,7 +35,7 @@ cd ..  # openvela 工作区根（含 nuttx/ apps/ vendor/ ...）
 make -j$(nproc)
 ```
 
-产物：`nuttx`（ELF，加载地址 0x34000400 / FLEXRAM）。实测：ROM 112,160B/511KB，RAM 9,976B/1536KB。
+产物：`nuttx`（ELF，加载地址 0x34000400 / FLEXRAM）。实测：ROM 112,096B/511KB，RAM 9,976B/1536KB。
 
 ## 烧录运行（真机）
 
