@@ -9,8 +9,9 @@
   <include name="openvela.xml"/>
 
   <project path="contest2026_204_guangnianzhandui" name="contest2026_204_guangnianzhandui">
-    <linkfile src="app/hello_app" dest="packages/demos/contest2026_204_hello_app"/>
-    <linkfile src="quickapp/hello_quickapp" dest="packages/apps/contest2026_204_hello_quickapp"/>
-    <linkfile src="board/contest_board" dest="vendor/openvela/boards/contest2026_204_board"/>
+    <!-- STM32N647 (ATK-DNN647) board support: chip layer + board layer,
+         symlinked into the openvela tree where the build expects them. -->
+    <linkfile src="board/chips/stm32n6" dest="vendor/st/chips/stm32n6"/>
+    <linkfile src="board/boards/stm32n6" dest="vendor/st/boards/stm32n6"/>
   </project>
 </manifest>
