@@ -54,3 +54,23 @@ STM32N6 无内部 Flash，固件加载到 FLEXRAM/SRAM 执行：
 ## AI Coding 日志
 
 `logs/` 目录按《AI Coding 日志归集与提交手册》组织：`logs/<github_login>/manifest.json` + `logs/<github_login>/<date>/<tool>__<sid>.jsonl`。本队使用 Claude Code（VSCode 插件），日志由 contest-log-collector 工具导出。
+
+## LCD 驱动（LTDC）上机验证指南
+
+`release/nuttx-nsh-ltdc-20261007.elf` 为启用 LTDC 的固件（ROM 115,984B/511KB，编译日志 `release/build-ltdc-20261007.log`）。接好 4.3" RGB 屏后按上述步骤烧录，串口应出现：
+
+```
+STM32N6 LTDC: 800x480 @ 16 bpp, fb=0x24100000 len=768000
+```
+
+预期现象：背光点亮，屏幕全黑（帧缓冲已清零）。NSH 下 `ls /dev` 应能看到 `fb0`。
+
+三个待硬件确认项及快速定位（均在 `board/boards/stm32n6/atk-dnn647/include/board_lcd.h` 一处修改）：
+
+| 现象 | 原因 | 修改 |
+|---|---|---|
+| 完全无背光 | 背光脚/极性 | `BOARD_LCD_BL_*` 宏 |
+| 有背光无图像/花屏 | 像素时钟或时序极性 | `BOARD_LCD_*` 时序参数、`st_ltdc.c` GCR 极性位 |
+| 颜色通道错位（红蓝互换等） | GPIO AF 号或 RGB 线序 | `BOARD_LCD_GPIO_AF`、引脚表 |
+
+向 `/dev/fb0` 写 RGB565 数据即可显示（后续 LVGL  demo 基于此）。
