@@ -20,4 +20,14 @@ config ARCH_CHIP_STM32N6
 
 endchoice
 
+config STM32N6_LTDC
+	bool "STM32N6 LTDC (parallel RGB LCD controller)"
+	default n
+	depends on DRIVERS_VIDEO
+	---help---
+		Enable the LTDC v2 controller driver (st_ltdc.c).  The board
+		layer must provide the panel timing, pin table, pixel format
+		and frame buffer address (see boards/stm32n6/atk-dnn647).
+		Pixel clock: PLL1 VCO / CONFIG_STM32N6_LTDC_IC16_DIV via IC16.
+
 endif

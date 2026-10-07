@@ -35,6 +35,10 @@
 #include "arm_internal.h"
 #include "atk-dnn647.h"
 
+#ifdef CONFIG_STM32N6_LTDC
+int atk_dnn647_lcd_init(void);
+#endif
+
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
@@ -64,6 +68,16 @@ int atk_dnn647_bringup(void)
   if (ret < 0)
     {
       syslog(LOG_ERR, "ERROR: Failed to mount procfs: %d\n", ret);
+    }
+#endif
+
+#ifdef CONFIG_STM32N6_LTDC
+  /* Initialize the ATK 4.3" RGB LCD (LTDC + framebuffer) */
+
+  ret = atk_dnn647_lcd_init();
+  if (ret < 0)
+    {
+      syslog(LOG_ERR, "ERROR: LCD init failed: %d\n", ret);
     }
 #endif
 

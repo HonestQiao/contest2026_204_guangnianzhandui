@@ -21,6 +21,10 @@
 include $(TOPDIR)/Make.defs
 
 CSRCS = st_ap.c
+
+ifeq ($(CONFIG_STM32N6_LTDC),y)
+CSRCS += st_lcd.c
+endif
 RCSRCS = etc/init.d/rc.sysinit etc/init.d/rcS
 RCRAWS = etc/group
 

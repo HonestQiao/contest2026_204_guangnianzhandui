@@ -34,3 +34,7 @@ include armv8-m/Make.defs
 
 CHIP_CSRCS += st_start.c st_irq.c st_uart.c
 CHIP_CSRCS += st_oneshot.c st_allocateheap.c
+
+ifeq ($(CONFIG_STM32N6_LTDC),y)
+CHIP_CSRCS += st_ltdc.c
+endif
