@@ -1,148 +1,147 @@
-# contest2026_204_guangnianzhandui
+# contest2026_204_guangnianzhandui — openvela 移植 STM32N647（ATK-DNN647）
 
-👋 欢迎参加 **2026 首届 openvela AI 硬件开发者大赛**！
+**队伍**：光年战队（编号 204）  **赛道**：新硬件平台适配  **开发板**：正点原子 ATK-DNN647（STM32N647X0H3Q，大赛官方板）
 
-这是组委会为你的队伍创建的**专属参赛仓库**（本仓为样例/模板，队伍编号 `204`；你看到的将是你自己的 `contest2026_<编号>_<队伍名>`）。比赛期间，你的全部参赛代码、打包产物与 AI Coding 日志都提交到这里。
+本仓是光年战队的专属参赛仓库。作品为 **NuttX/openvela 生态首个 STM32N6 系列板级适配**：完成芯片层（ARMv8-M 启动、NVIC、USART1 控制台、堆管理）与板级层（链接脚本、800MHz 时钟树、引脚定义），编译 100% 通过，产出可运行于 FLEXRAM 的 nuttx ELF（NSH 控制台）。
 
-> 本仓既是「代码仓」，又内置了一键拉取整套 openvela 工程的 `repo` 清单（manifest）。你只需跟它打交道，**自始至终只动一个文件夹**。
+## 仓库结构
 
----
+```text
+board/
+├── chips/stm32n6/              # 芯片层（Cortex-M55 启动/NVIC/USART/堆）
+└── boards/stm32n6/atk-dnn647/  # 板级层（链接脚本/时钟/引脚/NSH defconfig）
+.claude/skills/stm32-board-porting/  # 自建 Skill：STM32 板卡移植工作流
+app/
+└── led_demo/                   # LED 控制应用（openvela 规范：packages/demos）
+docs/
+├── technical-report.md         # 技术报告（官方模板 3.1–3.7）
+├── xts-admission-test-notes.md # xTS 准入测试探索记录（含逐项实测数据）
+└── porting-guide/              # 完整移植部署文档（十章，含踩坑清单）
+scripts/                        # 一键烧录 + 验证脚本
+├── n6_flash.py                 # 串口 Boot ROM 烧录
+├── nsh_verify.py               # 烧录 + NSH 命令验证（RESULT: ALL PASS）
+└── led_verify.py               # 烧录 + LED 命令验证
+logs/HonestQiao/                # AI Coding 日志（manifest.json + 会话 jsonl）
+contest2026_204_guangnianzhandui.xml  # repo manifest：linkfile 映射到编译树
+```
 
-## 一、先读这些官方文档
+`board/` 下代码通过 manifest 的 `<linkfile>` 软链到 openvela 工作区：
 
-**通用（所有赛道必读）：**
+| 本仓路径 | 链接到 |
+|----------|--------|
+| `board/chips/stm32n6` | `vendor/st/chips/stm32n6` |
+| `board/boards/stm32n6` | `vendor/st/boards/stm32n6` |
+| `app/led_demo` | `packages/demos/led` |
 
-| 文档                                                                                                                                     | 用途                                           |
-| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| [《大赛总览》](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/contest_overview.md)                        | 赛道、流程、评分、资源，建议先通读             |
-| [《参赛代码提交指南》](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/code_submission_guide.md)           | 仓库获取、提交流程、时间与权限（**以此为准**） |
-| [《AI Coding 日志归集与提交手册》](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/ai_coding_log_guide.md) | 如何导出 AI 对话日志并提交到 `logs/`           |
-
-**按你的赛道选读（三选一）：**
-
-| 赛道                  | 教程导航                                                                                                                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 快应用 / 手表应用创新 | [快应用教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/quickapp/quickapp_guide_index.md)                         |
-| AI 硬件产品创新       | [AI 硬件赛道教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/ai_hardware/ai_hardware_guide_index.md)              |
-| 新硬件适配            | [新硬件适配赛道教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/hardware_porting/hardware_porting_guide_index.md) |
-
----
-
-## 二、第一步：拉取完整工程
-
-用组委会提供的命令一键拉取「openvela 全量源码 + 你的专属仓」：
+## 构建（在 openvela 工作区根目录）
 
 ```bash
 repo init -u https://github.com/open-vela/contest2026_204_guangnianzhandui \
   -b dev-ai-contest-2026 -m contest2026_204_guangnianzhandui.xml
 repo sync -c -j8
+cd ..  # openvela 工作区根（含 nuttx/ apps/ vendor/ ...）
+
+# 构建（Make 模式，非 --cmake）
+./build.sh vendor/st/boards/stm32n6/atk-dnn647/configs/nsh/ -j$(nproc)
 ```
 
-同步后，你的整个仓库位于工作区的 `contest2026_204_guangnianzhandui/`，openvela 全量源码在外层（`nuttx/`、`apps/`、`packages/`、`vendor/` 等）。
+产物：`nuttx`（ELF，加载地址 0x34180240 / FLEXRAM）。实测：
+ROM 110,904B/240KB (45.13%)，RAM 9,976B，DTCM 0B。
 
----
+可选配置：`configs/nsh`（默认，NSH + LED）、`configs/xts`（xTS 测试框架，
+**探索性、未达验收标准**，详见 `docs/xts-admission-test-notes.md`）。
 
-## 三、第二步：在哪里写代码
+> **入口地址随固件大小变化，每次构建后必须重新取**：
+> ```bash
+> arm-none-eabi-nm nuttx | grep __n6_boot   # ENTRY = 该地址 + 1
+> ```
 
-**只在自己的仓目录 `contest2026_204_guangnianzhandui/` 里开发。** 不同作品形态放在对应子目录，manifest 会通过 `<linkfile>` 把它们**软链**到 openvela 编译树该在的位置——你不用手动 copy：
+## 烧录运行（真机）
 
-| 作品形态 | 你的代码放这里             | 系统自动映射到                                 |
-| -------- | -------------------------- | ---------------------------------------------- |
-| 应用     | `app/hello_app/`           | `packages/demos/contest2026_204_hello_app`     |
-| 快应用   | `quickapp/hello_quickapp/` | `packages/apps/contest2026_204_hello_quickapp` |
-| 板级适配 | `board/contest_board/`     | `vendor/openvela/boards/contest2026_204_board` |
+STM32N6 **无内部 Flash**，固件加载到 FLEXRAM 执行；且本板未接 ST-Link，
+因此走 **串口 Boot ROM** 烧录（本平台唯一可行的部署方式）。
 
-> 用不到的形态目录可以删掉；新增作品时按同样规则加子目录，并在 `contest2026_204_guangnianzhandui.xml` 里补一条 `<linkfile>` 映射即可。**生产仓库（packages/nuttx/vendor 等）零改动。**
-
-建议仓库目录约定（便于评委定位）：
-
-```text
-app/ | quickapp/ | board/   # 你的作品代码
-logs/                       # AI Coding 日志（主动导出后提交，格式见 logs/README.md）
-README.md                   # 作品说明（提交前请改成你自己的，见第六节）
-```
-
-> 仓内附带了一个 `.gitignore.example`，给出了**编译产物**等不需要进仓的文件示例。如需启用，`cp .gitignore.example .gitignore` 后按需增删即可。**注意 `logs/` 下最终导出的 AI Coding 日志必须提交，不要忽略。**
->
-> `logs/` 的目录结构与提交格式见 [logs/README.md](logs/README.md)。
-
----
-
-## 四、第三步：编译与运行
-
-编译/运行步骤随作品形态不同而不同，请参考你所在赛道的教程导航：
-
-- 快应用 / 手表应用：[快应用教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/quickapp/quickapp_guide_index.md)（含模拟器与开发板部署）。
-- AI 硬件产品创新：[AI 硬件赛道教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/ai_hardware/ai_hardware_guide_index.md)（环境搭建、编译烧录、Skill 开发）。
-- 新硬件适配：[新硬件适配赛道教程导航](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/hardware_porting/hardware_porting_guide_index.md)（BSP 移植、最小 NSH 基线）。
-
-子目录已通过 manifest 中的 `<linkfile>` 软链进 openvela 编译树，因此构建在 openvela 工作区**根目录**（即你这个仓的上一级）进行。openvela 使用 `build.sh` 作为统一入口，接收一个 **board config 路径**作为参数：
+**一键烧录 + 验证**（推荐）：
 
 ```bash
-# 进入 openvela 工作区根目录（你的仓的上一级）
-cd ..
+# NSH 全命令验证（期望输出 RESULT: ALL PASS）
+python3 scripts/nsh_verify.py /dev/cu.usbserial-1420 nuttx_bootrom.bin <ENTRY> 6
 
-# 通用语法：第一个参数是 board config 路径，第二个参数可以是 menuconfig / distclean 等
-./build.sh <board-config-path> [menuconfig|distclean] [-j8]
+# LED 命令验证
+python3 scripts/led_verify.py /dev/cu.usbserial-1420 nuttx_bootrom.bin <ENTRY> 6
 ```
 
-> 具体的 board config 路径、目标产物、模拟器/真机部署方式请以你所在赛道的教程导航为准。本仓 `app/` `quickapp/` `board/` 三个示例骨架对应的 Kconfig 选项可通过 `menuconfig` 启用。
+**仅烧录**：
 
----
+```bash
+python3 scripts/n6_flash.py /dev/cu.usbserial-1420 nuttx_bootrom.bin fsbl.bin <ENTRY> 6
+```
 
-## 五、第四步：提交作品
+**串口交互**（⚠️ 参数必须为 8E1 偶校验，且必须禁用 DTR/RTS）：
 
-1. **fork** 你的专属仓 → 开发 → `git commit` 并推送 → 向专属仓发起 **Pull Request**，可**自行 review 并合入**（无需等组委会）。
-2. **AI Coding 日志**：与 AI 工具的对话会自动记录到本机 staging（不会自动上传），需你**主动导出/打包**选定会话到仓内 `logs/` 目录后一并提交。详见[《AI Coding 日志归集与提交手册》](https://github.com/open-vela/docs/blob/dev-ai-contest-2026/zh-cn/contest_2026/ai_coding_log_guide.md)。
-3. 若需改动 **nuttx 等公共仓库**，不在本仓改，而是 fork 对应公共仓、以 PR 提交到 `dev-ai-contest-2026` 分支，由组委会 review 后合入。
+```bash
+picocom -b 115200 --parity e -d 8 --stopbits 1 -f n --noinit \
+         --lower-dtr --lower-rts /dev/cu.usbserial-1420
+```
 
-> ⏰ **提交作品截止：9 月 20 日**。截止后统一收回 push 权限，仍可查看 / clone。
+> `--noinit` 必加：CH340 的 DTR/RTS 接了板子的 BOOT0/NRST，工具初始化时会复位板子；
+> 而固件跑在 SRAM，**复位即丢失需重新烧录**。
 >
-> 获奖后再按要求将作品 PR 至 openvela 上游对应仓库（走标准 PR + CI 流程）。
+> 完整步骤、寄存器地址速查、9 条踩坑详见 `docs/porting-guide/`。
 
-### 关于 PR 与 CLA
+> 对公共仓库的构建修复（nuttx VPATH、Kconfig 兼容性等）以 PR 形式提交至 open-vela 对应仓库的 `dev-ai-contest-2026` 分支，见 docs/technical-report.md 3.4 节。
 
-- 本仓所有改动通过 **Pull Request** 合入（分支保护强制，可自行合入自己的 PR）。
-- 首次贡献需在[**官网签署 CLA**](https://openvela.com/#/community/cla)；PR 上会自动跑 `cla/signature` 检查，在官网签署成功后，在 PR 评论 `/check-cla` 复检即可通过。
+## 关于 PR 与 CLA
 
----
+首次向本仓提交 PR 时会运行 `cla/signature` 检查。请先在 [openvela 官网签署 CLA](https://openvela.com/#/community/cla)（报名时的 GitHub 账号），再在 PR 下评论 `/check-cla` 复检。
 
-## 六、提交前：把本 README 改成你的作品说明
+## AI Coding 日志
 
-本文件目前是组委会给的**使用说明书**。**作品提交前，请把它替换成你自己作品的说明**，方便评委快速了解你做了什么、怎么跑起来。建议至少包含以下内容：
+`logs/` 目录按《AI Coding 日志归集与提交手册》组织：`logs/<github_login>/manifest.json` + `logs/<github_login>/<date>/<tool>__<sid>.jsonl`。本队使用 Claude Code（VSCode 插件），日志由 contest-log-collector 工具导出。
 
-```markdown
-# <你的作品名>
+## LCD 驱动（LTDC）上机验证指南
 
-## 一、作品简介
-<一句话/一段话说明这个作品是什么、解决什么问题、亮点在哪>
+`release/nuttx-nsh-ltdc-20261007.elf` 为启用 LTDC 的固件（ROM 115,984B/511KB，编译日志 `release/build-ltdc-20261007.log`）。接好 4.3" RGB 屏后按上述步骤烧录，串口应出现：
 
-## 二、选题方向
-<快应用 / 手表应用创新 ｜ AI 硬件产品创新 ｜ 新硬件适配 ｜ 自定方向，并简述理由>
-
-## 三、目录结构
-<列出你这个仓里各目录/文件的作用，例如：>
-- `app/xxx/`        — <说明>
-- `board/xxx/`      — <说明>
-- `quickapp/xxx/`   — <说明>
-- `logs/`           — AI Coding 日志
-- `docs/` 或其他    — <说明>
-
-## 四、运行方式
-<拉取工程后，如何编译、烧录/部署、运行的完整步骤；最好能让评委照着一步步复现>
-
-## 五、AI Coding 使用说明
-<说明本作品如何借助 AI 辅助开发：
-- 在需求拆解 / 方案设计 / 编码 / 调试 / 文档等环节如何与 AI 协作；
-- AI 对开发效率或质量带来的实际帮助。
-完整对话日志见 logs/ 目录>
+```
+STM32N6 LTDC: 800x480 @ 16 bpp, fb=0x24100000 len=768000
 ```
 
-> 提示：将会根据「作品本身 + 你的 README 说明 + `logs/` 里的 AI Coding 日志」来理解和评估你的作品，README 写清楚很重要。
+预期现象：背光点亮，屏幕全黑（帧缓冲已清零）。NSH 下 `ls /dev` 应能看到 `fb0`。
 
----
+三个待硬件确认项及快速定位（均在 `board/boards/stm32n6/atk-dnn647/include/board_lcd.h` 一处修改）：
 
-## 附：仓库命名规范
+| 现象 | 原因 | 修改 |
+|---|---|---|
+| 完全无背光 | 背光脚/极性 | `BOARD_LCD_BL_*` 宏 |
+| 有背光无图像/花屏 | 像素时钟或时序极性 | `BOARD_LCD_*` 时序参数、`st_ltdc.c` GCR 极性位 |
+| 颜色通道错位（红蓝互换等） | GPIO AF 号或 RGB 线序 | `BOARD_LCD_GPIO_AF`、引脚表 |
 
-`contest2026_<编号>_<队伍名>` — 编号三位零填充；队名 slug（全小写、英文/拼音、连字符）。例：`contest2026_204_guangnianzhandui`。
-（仓库由组委会统一创建，**每队仅一个仓**，无需自行命名。）
+向 `/dev/fb0` 写 RGB565 数据即可显示（后续 LVGL  demo 基于此）。
+
+## LED 控制命令（`leds`）
+
+ATK-DNN647 板载 2 颗 LED，均为**低电平点亮**：
+
+| LED | GPIO | 位置 |
+|-----|------|------|
+| LED0 | PG10 | 核心板 CNN647B |
+| LED1 | PE10 | 底板 DNN647 |
+
+```text
+nsh> leds 0 on       # 点亮 LED0
+nsh> leds 1 on       # 点亮 LED1
+nsh> leds 0 off      # 熄灭 LED0
+nsh> leds 0 blink    # LED0 闪烁（Ctrl+C 停止）
+nsh> leds            # 两颗一起闪
+nsh> leds -h         # 用法
+```
+
+底层实现：`board/boards/stm32n6/atk-dnn647/src/st_userled.c` 自行实现
+`userled_lowerhalf_s` 并 `userled_register("/dev/userleds", ...)` 注册
+（**不依赖** `CONFIG_USERLED_LOWER`——该选项需要 `ARCH_HAVE_LEDS`，
+而 vendor_template 生成的板级 Kconfig 为空，选不中）。
+
+应用代码位于 `app/led_demo/`（映射到 `packages/demos/led`），
+遵循 openvela 规范：**独立 `APP_DEMOS_LED` 配置项，不复用 `EXAMPLES_LEDS`**，
+社区 `apps/examples/leds` 保持原状未被修改。
