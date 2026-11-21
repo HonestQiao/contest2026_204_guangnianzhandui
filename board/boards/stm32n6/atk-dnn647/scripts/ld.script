@@ -1,0 +1,149 @@
+/****************************************************************************
+ * vendor/st/boards/stm32n6/atk-dnn647/scripts/ld.script
+ *
+ * STM32N6 serial-boot layout (zero-copy):
+ *
+ * The boot ROM copies the entire image (code + rodata + .data) into
+ * FLEXRAM at 0x34180400 and branches to the header entry point.  Since
+ * .data VMA = .data LMA (both in FLEXRAM), no runtime copy is needed.
+ * .bss (NOLOAD) follows .data in FLEXRAM and is zeroed at run time.
+ *
+ * All RAM (data, bss, heap, stacks) must stay within the FLEXRAM region
+ * that the boot ROM leaves writable (approximately 0x34180400 to
+ * 0x341C4400 = 400KB of FLEXRAM).
+ *
+ * Memory budget:
+ *   code + rodata:  ~100KB
+ *   .data:          ~1KB
+ *   .bss:           ~7KB
+ *   kernel heap:    ~140KB
+ *   stacks + log:   ~4KB
+ *   total:         ~252KB < 400KB FLEXRAM ✓
+ ****************************************************************************/
+
+/* Entry Point */
+ENTRY(Reset_Handler)
+
+_estack = ORIGIN(ROM) + LENGTH(ROM);  /* 0x341BC240, just under vector[0] */
+
+_Min_Heap_Size  = 0x200;
+_Min_Stack_Size = 0x800;
+
+MEMORY
+{
+  /* FLEXRAM: code, rodata, .data, .bss, heap, stacks — all in one window */
+  ROM   (xrwx) : ORIGIN = 0x34180240, LENGTH = 240K
+
+  DTCM  (rwx)  : ORIGIN = 0x20000000, LENGTH = 128K
+}
+
+OUTPUT_ARCH(arm)
+EXTERN(_vectors)
+ENTRY(_stext)
+
+SECTIONS
+{
+    /* The boot ROM branches to the RAW header entry value; with the copy
+     * base measured at 0x34180240, an entry of 0x34180401 lands exactly
+     * here (payload offset 0x1C0), so pin __n6_boot at that address. */
+
+    /* The boot ROM copies the blob (576-byte header + payload) to
+     * 0x34180000, so the payload starts at 0x34180240.  The vector table
+     * is therefore placed at the payload start, and __n6_boot at payload
+     * 0x1C0 whose address (0x34180401 with the thumb bit) is an entry
+     * value the boot ROM accepts. */
+
+    /* VTOR alignment: the N6 vector table spans > 512 bytes, and the
+     * Cortex-M55 may require the table base to be 1KB aligned. 0x34180400
+     * is 1KB-aligned; 0x34180300 is not (SVC vector fetch failed there). */
+
+    /* Output section starts at the payload base so objcopy emits the full
+     * span; the table body itself is forced to 1KB alignment (VTOR needs
+     * it on the N6) and thus lands at 0x34180400. */
+
+    /* The ROM copies the blob to 0x34180000; the payload starts at
+     * 0x34180240.  The vector table body needs 1KB alignment for the M55
+     * VTOR.  __n6_boot follows immediately after the table. */
+
+    .vectors 0x34180240 : {
+        . = ALIGN(0x400);
+        /* _vectors comes from arm_vectors.o; a script assignment here would satisfy EXTERN and block the archive pull-in */
+        KEEP(*(.vectors))
+        KEEP(*(.bootentry))
+    } > ROM
+
+    .text : {
+        _stext = ABSOLUTE(.);
+        *(.text .text.*)
+        *(.fixup)
+        *(.gnu.warning)
+        *(.rodata .rodata.*)
+        *(.gnu.linkonce.t.*)
+        *(.glue_7)
+        *(.glue_7t)
+        *(.got)
+        *(.gcc_except_table)
+        *(.gnu.linkonce.r.*)
+        _etext = ABSOLUTE(.);
+    } > ROM
+
+    .init_section : {
+        _sinit = ABSOLUTE(.);
+        KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*) SORT_BY_INIT_PRIORITY(.ctors.*)))
+        KEEP(*(.init_array EXCLUDE_FILE(*crtbegin.o *crtbegin?.o *crtend.o *crtend?.o) .ctors))
+        _einit = ABSOLUTE(.);
+    } > ROM
+
+    .ARM.extab : {
+        *(.ARM.extab*)
+    } > ROM
+
+    __exidx_start = ABSOLUTE(.);
+    .ARM.exidx : {
+        *(.ARM.exidx*)
+    } > ROM
+    __exidx_end = ABSOLUTE(.);
+
+    /* .data VMA = LMA = in FLEXRAM (zero-copy: the boot ROM already
+     * placed the image at this address, so .data is pre-initialized). */
+
+    .data : {
+        _sdata = ABSOLUTE(.);
+        *(.data .data.*)
+        *(.gnu.linkonce.d.*)
+        CONSTRUCTORS
+        . = ALIGN(4);
+        _edata = ABSOLUTE(.);
+    } > ROM
+
+    .bss (NOLOAD) : {
+        _sbss = ABSOLUTE(.);
+        *(.bss .bss.*)
+        *(.gnu.linkonce.b.*)
+        *(COMMON)
+        . = ALIGN(4);
+        _ebss = ABSOLUTE(.);
+    } > ROM
+
+    ._user_heap_stack (NOLOAD) : {
+        . = ALIGN(8);
+        PROVIDE(end = .);
+        PROVIDE(_end = .);
+        . = . + _Min_Heap_Size;
+        . = . + _Min_Stack_Size;
+        . = ALIGN(8);
+    } > ROM
+
+    .stab 0 : { *(.stab) }
+    .stabstr 0 : { *(.stabstr) }
+    .stab.excl 0 : { *(.stab.excl) }
+    .stab.exclstr 0 : { *(.stab.exclstr) }
+    .stab.index 0 : { *(.stab.index) }
+    .stab.indexstr 0 : { *(.stab.indexstr) }
+    .comment 0 : { *(.comment) }
+    .debug_abbrev 0 : { *(.debug_abbrev) }
+    .debug_info 0 : { *(.debug_info) }
+    .debug_line 0 : { *(.debug_line) }
+    .debug_pubnames 0 : { *(.debug_pubnames) }
+    .debug_aranges 0 : { *(.debug_aranges) }
+}

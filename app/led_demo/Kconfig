@@ -1,0 +1,35 @@
+#
+# For a description of the syntax of this configuration file,
+# see the file kconfig-language.txt in the NuttX tools repository.
+#
+
+config APP_DEMOS_LED
+	bool "Custom LED control demo"
+	default n
+	depends on USERLED
+	---help---
+		Enable this to build the custom LED control demo, which
+		demonstrates how to turn an LED on and off via ioctl.
+
+if APP_DEMOS_LED
+
+config APP_DEMOS_LED_PROGNAME
+	string "Program name"
+	default "leds"
+	---help---
+		This is the name of the program that will be used when the NSH ELF
+		program is installed.
+
+config APP_DEMOS_LED_PRIORITY
+	int "LED task priority"
+	default 100
+
+config APP_DEMOS_LED_STACKSIZE
+	int "LED stack size"
+	default 2048
+
+config APP_DEMOS_LED_DEVPATH
+	string "LED device path"
+	default "/dev/userleds"
+
+endif # APP_DEMOS_LED
