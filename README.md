@@ -77,15 +77,19 @@ python3 scripts/led_verify.py /dev/cu.usbserial-1420 nuttx_bootrom.bin <ENTRY> 6
 python3 scripts/n6_flash.py /dev/cu.usbserial-1420 nuttx_bootrom.bin fsbl.bin <ENTRY> 6
 ```
 
-**串口交互**（⚠️ 参数必须为 8E1 偶校验，且必须禁用 DTR/RTS）：
+**串口交互**（⚠️ 参数必须用 `--parity n`，且必须禁用 DTR/RTS）：
 
 ```bash
-picocom -b 115200 --parity e -d 8 --stopbits 1 -f n --noinit \
+picocom -b 115200 --parity n -d 8 --stopbits 1 -f n --noinit \
          --lower-dtr --lower-rts /dev/cu.usbserial-1420
 ```
 
-> `--noinit` 必加：CH340 的 DTR/RTS 接了板子的 BOOT0/NRST，工具初始化时会复位板子；
-> 而固件跑在 SRAM，**复位即丢失需重新烧录**。
+> `--parity` 必须用 **`n`（无校验）**——实测 `--parity e` 完全收不到数据；
+> 本板 USART 为 9 位字长（8 数据 + 1 校验），主机 8N1 即可正常收发。
+>
+> `--noinit --lower-dtr --lower-rts` 三个都要带：CH340 的 DTR/RTS 接了板子的
+> BOOT0/NRST，工具初始化时会复位板子；而固件跑在 SRAM，**硬件复位即丢失需重新烧录**。
+> 但**正常退出 picocom 不会复位，固件仍在，可直接重连**（重连若报串口被占用，等 2–3 秒）。
 >
 > 完整步骤、寄存器地址速查、9 条踩坑详见 `docs/porting-guide/`。
 
